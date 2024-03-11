@@ -2550,6 +2550,11 @@ var todoAddedEvent = createAction("todoListSlice/addTodo");
 var todoRemovedEvent = createAction("todoListSlice/removeTodo");
 var todoDoneEvent = createAction("todoListSlice/doneTodo");
 
+// src/core/todo.use-cases.js
+var addTodoInList = (store) => (todo) => {
+  store.dispatch(todoAddedEvent(todo));
+};
+
 // src/UI/todoList.component.js
 var todoListSelector = (store) => store.getState().todoListSlice;
 var todoListComponent = (selector) => {
@@ -2558,14 +2563,13 @@ var todoListComponent = (selector) => {
         <ul>
             ${selector.todos.map((todo) => "<li>" + todo.description + "</li>").join("")}
         </ul>
-        <input type="text">
-        <button>Add</button>
+        <input id="addTodoInput" type="text"> // how I bind event & how I link useCases on event handler ?
+        <button id="addTodoBtn">Add</button>
     </div>
-    
     `;
 };
-var page = (rootElement, store) => {
-  rootElement.innerHTML = todoListComponent(todoListSelector(store));
+var page = (rootElement, selector) => {
+  rootElement.innerHTML = todoListComponent(selector);
 };
 
 // src/core/todo.reducer.js
@@ -2625,4 +2629,19 @@ var store = configureStore({
 
 // src/index.js
 var root = document.querySelector("main");
-page(root, store);
+var refresh = () => {
+  page(root, todoListSelector(store));
+  addPageListener(addTodoInList(store));
+};
+var makeTodo = (description) => ({ description, done: false, id: 1 });
+var addPageListener = (addTodoUseCase) => {
+  const addBtn = document.querySelector("#addTodoBtn");
+  const addInput = document.querySelector("#addTodoInput");
+  addBtn.addEventListener("click", () => {
+    console.log("event fired");
+    addTodoUseCase(makeTodo(addInput.value));
+  });
+};
+store.subscribe(() => refresh());
+page(root, todoListSelector(store));
+addPageListener(addTodoInList(store));

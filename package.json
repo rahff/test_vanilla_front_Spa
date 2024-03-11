@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "jasmine",
-    "start": "bun build > ./src/bundle.js"
+    "start": "rm ./src/bundle.js && bun build ./src/index.js > ./src/bundle.js"
   },
   "author": "",
   "license": "ISC",
