@@ -1,8 +1,8 @@
 import {testingStore} from "../src/core/store.js";
 import {addTodoInList, doneTodoInList, makeTodo, removeTodoInList} from "../src/core/todoList/todo.use-cases.js";
-import {selectorFactory} from "../src/core/selector.js";
 import {todoListSliceKey} from "../src/core/todoList/todo.state.js";
 import {fakeIdProvider} from "../src/adapters/adapters.js";
+import {stateSelector} from "../src/core/selector.js";
 
 
 describe("The todoList", () => {
@@ -10,7 +10,7 @@ describe("The todoList", () => {
     let addingTodo;
     let removingTodo;
     let finishTodo;
-    let selector
+    let model
     const theTodo = {description: "test something", done: false, id: "2"};
     
     beforeEach(() => {
@@ -18,29 +18,29 @@ describe("The todoList", () => {
         addingTodo = addTodoInList(store, makeTodo(fakeIdProvider))
         removingTodo = removeTodoInList(store)
         finishTodo = doneTodoInList(store);
-        selector = (store) => selectorFactory(store, todoListSliceKey);
+        model = store => stateSelector(store, todoListSliceKey);
     })
     it("should add todo in todoList", () => {
         addingTodo("test something");
-        expect(selector(store).todos).toContain(theTodo)
+        expect(model(store).todos).toContain(theTodo)
     })
 
     it("cannot add todo that already exist with same description", () => {
         addingTodo("test something");
         addingTodo("test something");
-        expect(selector(store).error).toEqual("todo already exists");
-        expect(selector(store).todos[2]).toBeUndefined();
+        expect(model(store).error).toEqual("todo already exists");
+        expect(model(store).todos[2]).toBeUndefined();
     })
 
     it("should remove todo in todoList", () => {
         addingTodo("do something");
-        removingTodo("1");
-        expect(selector(store).todos).not.toContain(theTodo)
+        removingTodo("2");
+        expect(model(store).todos).not.toContain(theTodo)
     })
 
     it("should done todo in todoList", () => {
         addingTodo("do something");
-        finishTodo("1");
-        expect(selector(store).todos[0].done).toBeTrue()
+        finishTodo("2");
+        expect(model(store).todos[0].done).toBeTrue()
     })
 })
