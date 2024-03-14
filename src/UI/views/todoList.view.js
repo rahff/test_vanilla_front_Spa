@@ -31,7 +31,7 @@ const deleteTodoListeners = (domApi, command) => {
         command(todoId);
     }))
 }
-export const addTodoListListener = (domApi, useCase) => {
+const addTodoListListener = (domApi, useCase) => {
     addTodoListeners(domApi, useCase.addTodo);
     doneTodoListeners(domApi, useCase.doneTodo);
     deleteTodoListeners(domApi, useCase.deleteTodo);

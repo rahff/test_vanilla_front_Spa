@@ -2555,7 +2555,6 @@ var todoAlreadyExistEvent = createAction("todoListSlice/setError", payload);
 
 // src/core/todoList/todo.reducer.js
 var setTodos = (state, event) => {
-  console.log("event", event);
   return {
     ...state,
     todos: event.payload,
