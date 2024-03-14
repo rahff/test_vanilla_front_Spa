@@ -10,6 +10,11 @@ import {todoListSliceKey} from "../src/core/todoList/todo.state.js"
 const noopElement = {
     addEventListener: () => {}
 }
+
+const formControlFakeElement = {
+    addEventListener: () => {},
+    addValidator: () => {}
+}
 describe("Component testability", () => {
     let domApi;
     let store;
@@ -31,8 +36,11 @@ describe("Component testability", () => {
             querySelectorAll: () => {},
             querySelector: (selector) => {
                 if(selector === "#app")
-                    return rootElement
-                else return noopElement
+                    return rootElement;
+                if(selector === "#addTodoInput"){
+                    return formControlFakeElement;
+                }
+                else return noopElement;
             }
         }
         model = store => stateSelector(store, todoListSliceKey)
