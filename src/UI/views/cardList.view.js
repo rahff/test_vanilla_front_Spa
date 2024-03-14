@@ -1,7 +1,8 @@
-import {headerComponent, cardComponent} from "./components.js";
-import {ngFor, ngIfElse} from "./utils.js";
-import {stateSelector} from "../core/selector.js";
-import {cardListSliceKey} from "../core/cards/cards.state.js";
+import {cardComponent} from "../components/cards.components.js"
+import {ngFor, ngIfElse} from "../utils.js";
+import {stateSelector} from "../../core/selector.js";
+import {cardListSliceKey} from "../../core/cards/cards.state.js";
+import {headerComponent} from "../components/common.components.js";
 
 
 export class CardListView {

@@ -2,7 +2,7 @@ import {testingStore} from "../src/core/store.js";
 import {addTodoInList, doneTodoInList, makeTodo, removeTodoInList} from "../src/core/todoList/todo.use-cases.js";
 import {selectorFactory} from "../src/core/selector.js";
 import {todoListSliceKey} from "../src/core/todoList/todo.state.js";
-import {todoListComponentRender, TodoListView} from "../src/UI/todoList.view.js";
+import {todoListComponentRender, TodoListView} from "../src/UI/views/todoList.view.js";
 import {fakeIdProvider} from "../src/adapters/adapters.js";
 
 

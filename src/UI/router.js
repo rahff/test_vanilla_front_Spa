@@ -1,8 +1,8 @@
 import {addTodoInList, doneTodoInList, makeTodo, removeTodoInList} from "../core/todoList/todo.use-cases.js";
 import {store} from "../core/store.js";
-import {TodoListView} from "./todoList.view.js";
+import {TodoListView} from "./views/todoList.view.js";
 import {fetchCard, idProvider} from "../adapters/adapters.js";
-import {CardListView} from "./cardList.view.js";
+import {CardListView} from "./views/cardList.view.js";
 import {queryCards} from "../core/cards/cards.use-cases.js";
 
 const todoListProvider = {
@@ -14,7 +14,6 @@ const todoListProvider = {
 const cardListProvider = {
     query: queryCards(store, fetchCard)
 }
-const todoListView = new TodoListView;
 
 export class Router {
     #state = "/";

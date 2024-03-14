@@ -2675,15 +2675,16 @@ var ngFor = (iterable, fnTemplate) => {
   return iterable.map((item) => fnTemplate(item)).join("");
 };
 
-// src/UI/components.js
+// src/UI/components/todoList.components.js
 var errorComponent = (message) => `<span>${message}</span>`;
 var todoButtons = (todo) => `
     <button data-action="done" ${ngIf(todo.done, "disabled")} data-id="${todo.id}">Done</button>
     <button data-action="delete" data-id="${todo.id}">Delete</button>
 `;
 var todoComponent = (todo) => `<li>${todo.description} ${todoButtons(todo)}</li>`;
-var cardComponent = (card) => `<div><h3>${card.title}</h3><img alt="${card.img.alt}" height="200" width="200" src="${card.img.url}"><p>${card.description}</p></div>`;
-var headerComponent = (model) => `
+
+// src/UI/components/common.components.js
+var headerComponent = () => `
     <header>
         <ul>
             <li><router-link data-path="/">Todo</router-link></li>
@@ -2691,7 +2692,7 @@ var headerComponent = (model) => `
         </ul>
     </header>`;
 
-// src/UI/todoList.view.js
+// src/UI/views/todoList.view.js
 class TodoListView {
   #model = (store2) => stateSelector(store2, todoListSliceKey);
   #store;
@@ -2798,7 +2799,16 @@ var fetchCard = () => {
   });
 };
 
-// src/UI/cardList.view.js
+// src/UI/components/cards.components.js
+var cardComponent = (card) => `
+    <div>
+        <h3>${card.title}</h3>
+        <img alt="${card.img.alt}" height="200" width="200" src="${card.img.url}">
+        <p>${card.description}</p>
+    </div>
+`;
+
+// src/UI/views/cardList.view.js
 class CardListView {
   #domApi;
   #store;
@@ -2871,7 +2881,6 @@ var todoListProvider = {
 var cardListProvider = {
   query: queryCards(store, fetchCard)
 };
-var todoListView = new TodoListView;
 
 class Router {
   #state = "/";
@@ -2926,9 +2935,6 @@ class RouterLink extends HTMLElement {
 var main = function() {
   customElements.define("router-link", RouterLink);
   const router2 = Router.getInstance();
-  window.addEventListener("popstate", () => {
-    router2.navigate(window.location.pathname);
-  });
   router2.navigate("/");
 };
 main();

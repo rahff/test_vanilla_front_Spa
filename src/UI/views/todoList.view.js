@@ -1,8 +1,9 @@
 
-import {todoListSliceKey} from "../core/todoList/todo.state.js";
-import {stateSelector} from "../core/selector.js";
-import { ngFor, ngIf} from "./utils.js";
-import {errorComponent, headerComponent, todoComponent} from "./components.js";
+import {todoListSliceKey} from "../../core/todoList/todo.state.js";
+import {stateSelector} from "../../core/selector.js";
+import { ngFor, ngIf} from "../utils.js";
+import {errorComponent, todoComponent} from "../components/todoList.components.js";
+import {headerComponent} from "../components/common.components.js"
 
 export class TodoListView {
     #model = (store) => stateSelector(store, todoListSliceKey);
@@ -74,7 +75,7 @@ export class TodoListView {
     }
 
     destroy(){
-        this.#unsubscribe()
+        this.#unsubscribe();
     }
 }
 
