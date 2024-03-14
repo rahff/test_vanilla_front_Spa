@@ -14,3 +14,7 @@ export const fetchTodos = () => {
         setTimeout(() => resolve(todosData), 200);
     })
 };
+
+export const syncFetchTodos = () => {
+    return todosData;
+};

@@ -41,7 +41,6 @@ export const todoListView = (store, domApi, useCase) => {
     const model = stateSelector(store, todoListSliceKey);
     const root = domApi.querySelector("#app");
     root.innerHTML = todoListComponentRender(model);
-    console.log("model ", model)
     addTodoListListener(domApi, useCase);
 }
 
