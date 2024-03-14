@@ -16,3 +16,12 @@ export const cardsData = [
             description: "This kitten plays with a fake mouse"
         }
     ]
+
+export const todosData = [
+    {
+        description: "do something", done: false, id: "1"
+    },
+    {
+        description: "do something else", done: false, id: "2"
+    },
+]

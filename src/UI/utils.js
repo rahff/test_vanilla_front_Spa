@@ -1,3 +1,8 @@
+export const queryView = (query, render) => {
+    query();
+    render();
+}
+
 export const ngIf = (expression, template) => {
     if(expression) return template;
     return "";

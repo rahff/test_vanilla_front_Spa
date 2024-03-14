@@ -1,8 +1,22 @@
-import {todoAddedEvent, todoAlreadyExistEvent, todoDoneEvent, todoRemovedEvent} from "./todo.events.js";
+import {
+    todoAddedEvent,
+    todoAlreadyExistEvent,
+    todoDoneEvent,
+    todoReceivedEvent,
+    todoRemovedEvent
+} from "./todo.events.js";
 import {todoListSliceKey} from "./todo.state.js";
 export const makeTodo = (idProvider) => (description) => ({description, done: false, id: idProvider()})
 
-const getTodos = (store) => store.getState()[todoListSliceKey].todos
+const getTodos = (store) => store.getState()[todoListSliceKey].todos;
+
+export const todoListQuery = (store, fetchTodo) => {
+    return () => {
+        fetchTodo().then(todos => {
+            store.dispatch(todoReceivedEvent(todos));
+        });
+    }
+}
 export const addTodoInList = (store, todoFactory) => value => {
     const alreadyExist = getTodos(store).some(todo => todo.description === value);
     if(alreadyExist) store.dispatch(todoAlreadyExistEvent("todo already exists"));

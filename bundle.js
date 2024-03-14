@@ -2547,12 +2547,21 @@ var ORIGINAL_STATE = Symbol.for("rtk-state-proxy-original");
 
 // src/core/todoList/todo.events.js
 var payload = (payload2) => ({ payload: payload2 });
+var todoReceivedEvent = createAction("todoListSlice/setTodos", payload);
 var todoAddedEvent = createAction("todoListSlice/addTodo", payload);
 var todoRemovedEvent = createAction("todoListSlice/removeTodo", payload);
 var todoDoneEvent = createAction("todoListSlice/doneTodo", payload);
 var todoAlreadyExistEvent = createAction("todoListSlice/setError", payload);
 
 // src/core/todoList/todo.reducer.js
+var setTodos = (state, event) => {
+  console.log("event", event);
+  return {
+    ...state,
+    todos: event.payload,
+    isLoading: false
+  };
+};
 var addTodo = (state, event) => {
   return {
     ...state,
@@ -2592,26 +2601,29 @@ var todoListSliceKey = "todoListSlice";
 var todoListSlice = createSlice({
   name: todoListSliceKey,
   initialState: {
-    todos: [
-      {
-        description: "do something",
-        done: false,
-        id: "1"
-      }
-    ],
-    error: null
+    todos: [],
+    error: null,
+    isLoading: true
   },
   reducers: {
     addTodo,
     removeTodo,
     doneTodo,
-    setError
+    setError,
+    setTodos
   }
 });
 
 // src/core/todoList/todo.use-cases.js
 var makeTodo = (idProvider) => (description) => ({ description, done: false, id: idProvider() });
 var getTodos = (store) => store.getState()[todoListSliceKey].todos;
+var todoListQuery = (store, fetchTodo) => {
+  return () => {
+    fetchTodo().then((todos) => {
+      store.dispatch(todoReceivedEvent(todos));
+    });
+  };
+};
 var addTodoInList = (store, todoFactory) => (value) => {
   const alreadyExist = getTodos(store).some((todo) => todo.description === value);
   if (alreadyExist)
@@ -2661,6 +2673,10 @@ var store = configureStore({
 var stateSelector = (store2, index) => store2.getState()[index];
 
 // src/UI/utils.js
+var queryView = (query, render) => {
+  query();
+  render();
+};
 var ngIf = (expression, template) => {
   if (expression)
     return template;
@@ -2682,8 +2698,18 @@ var todoButtons = (todo) => `
     <button data-action="delete" data-id="${todo.id}">Delete</button>
 `;
 var todoComponent = (todo) => `<li>${todo.description} ${todoButtons(todo)}</li>`;
+var todoListComponent = (model) => `
+    <div>
+        <ul>
+            ${ngFor(model.todos, todoComponent)}
+        </ul>
+        <input id="addTodoInput" type="text">
+        ${ngIf(model.error, errorComponent(model.error))}
+        <button id="addTodoBtn">Add</button>
+    </div>`;
 
 // src/UI/components/common.components.js
+var loader = () => `<p>...Loading</p>`;
 var headerComponent = () => `
     <header>
         <ul>
@@ -2693,45 +2719,53 @@ var headerComponent = () => `
     </header>`;
 
 // src/UI/views/todoList.view.js
-var addTodoListener = (domApi, useCase) => {
+var addTodoListeners = (domApi, command) => {
   const addBtn = domApi.querySelector("#addTodoBtn");
-  const doneBtns = domApi.querySelectorAll("[data-action='done']");
-  const deleteBtns = domApi.querySelectorAll("[data-action='delete']");
+  if (!addBtn)
+    return;
   const addInput = domApi.querySelector("#addTodoInput");
   addBtn.addEventListener("click", () => {
-    useCase.addTodo(addInput.value);
+    command(addInput.value);
   });
+};
+var doneTodoListeners = (domApi, command) => {
+  const doneBtns = domApi.querySelectorAll("[data-action='done']");
+  if (!doneBtns)
+    return;
   doneBtns.forEach((button) => button.addEventListener("click", (event) => {
     const todoId = event.target.dataset.id;
-    useCase.doneTodo(todoId);
-  }));
-  deleteBtns.forEach((button) => button.addEventListener("click", (event) => {
-    const todoId = event.target.dataset.id;
-    useCase.deleteTodo(todoId);
+    command(todoId);
   }));
 };
+var deleteTodoListeners = (domApi, command) => {
+  const deleteBtns = domApi.querySelectorAll("[data-action='delete']");
+  if (!deleteBtns)
+    return;
+  deleteBtns.forEach((button) => button.addEventListener("click", (event) => {
+    const todoId = event.target.dataset.id;
+    command(todoId);
+  }));
+};
+var addTodoListListener = (domApi, useCase) => {
+  addTodoListeners(domApi, useCase.addTodo);
+  doneTodoListeners(domApi, useCase.doneTodo);
+  deleteTodoListeners(domApi, useCase.deleteTodo);
+};
 var todoListView = (store2, domApi, useCase) => {
-  console.log("todo ");
   const model = stateSelector(store2, todoListSliceKey);
   const root = domApi.querySelector("#app");
   root.innerHTML = todoListComponentRender(model);
-  addTodoListener(domApi, useCase);
+  console.log("model ", model);
+  addTodoListListener(domApi, useCase);
 };
-var todoListComponentRender = (todoModel, headerModel) => {
+var todoListComponentRender = (todoModel) => {
   return `
-    ${headerComponent(headerModel)}
-    <div>
-        <ul>
-            ${ngFor(todoModel.todos, todoComponent)}
-        </ul>
-        <input id="addTodoInput" type="text">
-        ${ngIf(todoModel.error, errorComponent(todoModel.error))}
-        <button id="addTodoBtn">Add</button>
-    </div>
+    ${headerComponent()}
+    ${ngIfElse(todoModel.isLoading, loader(), todoListComponent(todoModel))}
     `;
 };
 
-// src/data/cards.data.js
+// src/data/fake.data.js
 var cardsData = [
   {
     title: "Two cats plays",
@@ -2750,12 +2784,29 @@ var cardsData = [
     description: "This kitten plays with a fake mouse"
   }
 ];
+var todosData = [
+  {
+    description: "do something",
+    done: false,
+    id: "1"
+  },
+  {
+    description: "do something else",
+    done: false,
+    id: "2"
+  }
+];
 
 // src/adapters/adapters.js
 var idProvider = () => Math.random().toString(36).substring(7).split("").join(".");
 var fetchCard = () => {
   return new Promise((resolve) => {
     setTimeout(() => resolve(cardsData), 200);
+  });
+};
+var fetchTodos = () => {
+  return new Promise((resolve) => {
+    setTimeout(() => resolve(todosData), 200);
   });
 };
 
@@ -2773,11 +2824,9 @@ var cardList = (cards) => `
             ${ngFor(cards, cardComponent)}
         </ul>
     </div>`;
-var loader = () => `<p>...Loading</p>`;
 
 // src/UI/views/cardList.view.js
 var cardListView = (store2, domApi) => {
-  console.log("card ");
   const model = stateSelector(store2, cardListSliceKey);
   const root = domApi.querySelector("#app");
   root.innerHTML = cardListComponentRender(model);
@@ -2809,7 +2858,8 @@ var queryCards = (store2, fetchCard2) => {
 var todoListProvider = {
   addTodo: addTodoInList(store, makeTodo(idProvider)),
   deleteTodo: removeTodoInList(store),
-  doneTodo: doneTodoInList(store)
+  doneTodo: doneTodoInList(store),
+  query: todoListQuery(store, fetchTodos)
 };
 var cardListProvider = {
   query: queryCards(store, fetchCard)
@@ -2830,15 +2880,16 @@ class Router {
       case "/":
         if (this.#storeUnsubscribe)
           this.#storeUnsubscribe();
-        this.#storeUnsubscribe = store.subscribe(() => todoListView(store, document, todoListProvider));
-        todoListView(store, document, todoListProvider);
+        const todoListRender = () => todoListView(store, document, todoListProvider);
+        this.#storeUnsubscribe = store.subscribe(todoListRender);
+        queryView(todoListProvider.query, todoListRender);
         break;
       case "/cards":
         if (this.#storeUnsubscribe)
           this.#storeUnsubscribe();
-        this.#storeUnsubscribe = store.subscribe(() => cardListView(store, document));
-        cardListProvider.query();
-        cardListView(store, document);
+        const renderCardList = () => cardListView(store, document);
+        this.#storeUnsubscribe = store.subscribe(renderCardList);
+        queryView(cardListProvider.query, renderCardList);
         break;
       default:
         throw new Error("unknown path");

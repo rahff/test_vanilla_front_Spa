@@ -1,3 +1,14 @@
+
+
+export const setTodos = (state, event) => {
+    console.log("event" , event)
+    return {
+        ...state,
+        todos: event.payload,
+        isLoading: false
+    }
+}
+
 export const addTodo = (state, event) => {
     return {
         ...state,

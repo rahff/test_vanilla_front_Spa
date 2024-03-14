@@ -1,5 +1,5 @@
 
-
+export const loader = () => `<p>...Loading</p>`
 export const headerComponent = () => `
     <header>
         <ul>

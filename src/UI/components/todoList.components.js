@@ -1,4 +1,4 @@
-import {ngIf} from "../utils.js";
+import {ngFor, ngIf} from "../utils.js";
 
 export const errorComponent = (message) => `<span>${message}</span>`;
 const todoButtons = (todo) => `
@@ -6,4 +6,13 @@ const todoButtons = (todo) => `
     <button data-action="delete" data-id="${todo.id}">Delete</button>
 `
 export const todoComponent = (todo) => `<li>${todo.description} ${todoButtons(todo)}</li>`;
+export const todoListComponent = (model) => `
+    <div>
+        <ul>
+            ${ngFor(model.todos, todoComponent)}
+        </ul>
+        <input id="addTodoInput" type="text">
+        ${ngIf(model.error, errorComponent(model.error))}
+        <button id="addTodoBtn">Add</button>
+    </div>`
 
