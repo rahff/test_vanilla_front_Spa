@@ -62,17 +62,14 @@ export class Router {
 
 
 export class RouterLink extends HTMLElement {
-    #router;
     #path;
     constructor() {
         super();
-        this.#router = Router.getInstance();
         this.#path = this.getAttribute('data-path');
         this.addEventListener("click", this.#handleClick.bind(this));
     }
 
     #handleClick(){
-        console.log("router-link")
-        this.#router.navigate(this.#path);
+        Router.getInstance().navigate(this.#path);
     }
 }

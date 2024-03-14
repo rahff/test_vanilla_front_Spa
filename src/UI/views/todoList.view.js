@@ -5,10 +5,20 @@ import {ngFor, ngIf, ngIfElse} from "../utils.js";
 import {errorComponent, todoComponent, todoListComponent} from "../components/todoList.components.js";
 import {headerComponent, loader} from "../components/common.components.js"
 
+
+const todoValidator = (value) => {
+    if(!value.match(/^[a-zA-Z0-9]+$/)){
+        return {
+            message: "should be alphanumeric"
+        }
+    }
+    return null
+}
 const addTodoListeners = (domApi, command) => {
     const addBtn = domApi.querySelector("#addTodoBtn");
     if(!addBtn) return;
     const addInput = domApi.querySelector("#addTodoInput");
+    addInput.addValidator({fn: todoValidator, templateError: errorComponent})
     addBtn.addEventListener("click", () => {
         command(addInput.value);
     })

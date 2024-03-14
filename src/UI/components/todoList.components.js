@@ -11,8 +11,10 @@ export const todoListComponent = (model) => `
         <ul>
             ${ngFor(model.todos, todoComponent)}
         </ul>
-        <input id="addTodoInput" type="text">
-        ${ngIf(model.error, errorComponent(model.error))}
+        <div>
+            <input is="form-control" id="addTodoInput" type="text">
+            ${ngIf(model.error, errorComponent(model.error))}
+        </div>
         <button id="addTodoBtn">Add</button>
     </div>`
 

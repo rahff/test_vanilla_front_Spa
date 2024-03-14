@@ -2707,8 +2707,10 @@ var todoListComponent = (model) => `
         <ul>
             ${ngFor(model.todos, todoComponent)}
         </ul>
-        <input id="addTodoInput" type="text">
-        ${ngIf(model.error, errorComponent(model.error))}
+        <div>
+            <input is="form-control" id="addTodoInput" type="text">
+            ${ngIf(model.error, errorComponent(model.error))}
+        </div>
         <button id="addTodoBtn">Add</button>
     </div>`;
 
@@ -2723,11 +2725,21 @@ var headerComponent = () => `
     </header>`;
 
 // src/UI/views/todoList.view.js
+var todoValidator = (value) => {
+  console.log("validator", value, !value.match(/[a-zA-Z0-9]/));
+  if (!value.match(/^[a-zA-Z0-9]+$/)) {
+    return {
+      message: "should be alphanumeric"
+    };
+  }
+  return null;
+};
 var addTodoListeners = (domApi, command) => {
   const addBtn = domApi.querySelector("#addTodoBtn");
   if (!addBtn)
     return;
   const addInput = domApi.querySelector("#addTodoInput");
+  addInput.addValidator({ fn: todoValidator, templateError: errorComponent });
   addBtn.addEventListener("click", () => {
     command(addInput.value);
   });
@@ -2905,23 +2917,58 @@ class Router {
 }
 
 class RouterLink extends HTMLElement {
-  #router;
   #path;
   constructor() {
     super();
-    this.#router = Router.getInstance();
     this.#path = this.getAttribute("data-path");
     this.addEventListener("click", this.#handleClick.bind(this));
   }
   #handleClick() {
-    console.log("router-link");
-    this.#router.navigate(this.#path);
+    Router.getInstance().navigate(this.#path);
+  }
+}
+
+// src/UI/components/FormControl.js
+class FormControl extends HTMLInputElement {
+  #validator;
+  #currentError = null;
+  #divError;
+  constructor() {
+    super();
+    this.addEventListener("input", (event) => {
+      this.#currentError = this.#validator.fn(event.target.value);
+      if (this.#currentError)
+        this.#showErrorOnParent(this.#currentError);
+      else
+        this.#removeErrorMessage();
+    });
+  }
+  #showErrorOnParent(error) {
+    if (this.#currentError && !this.#divError) {
+      this.#divError = document.createElement("div");
+      this.#divError.innerHTML = this.#validator.template(error.message);
+      this.parentElement.appendChild(this.#divError);
+    } else
+      this.#divError.innerHTML = this.#validator.template(error.message);
+  }
+  #removeErrorMessage() {
+    if (this.#divError) {
+      this.parentElement.removeChild(this.#divError);
+      this.#divError = null;
+    }
+  }
+  addValidator(validator) {
+    this.#validator = {
+      fn: validator.fn,
+      template: validator.templateError
+    };
   }
 }
 
 // src/index.js
 var main = function() {
   customElements.define("router-link", RouterLink);
+  customElements.define("form-control", FormControl, { extends: "input" });
   const router2 = Router.getInstance();
   router2.navigate("/");
 };
