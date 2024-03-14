@@ -2676,7 +2676,7 @@ var store = configureStore({
   reducer: rootReducer
 });
 
-// src/UI/utils.js
+// src/app/utils.js
 var queryView = (query, render) => {
   query();
   render();
@@ -2695,7 +2695,7 @@ var ngFor = (iterable, fnTemplate) => {
   return iterable.map((item) => fnTemplate(item)).join("");
 };
 
-// src/UI/components/todoList.components.js
+// src/app/components/todoList.components.js
 var errorComponent = (message) => `<span>${message}</span>`;
 var todoButtons = (todo) => `
     <button data-action="done" ${ngIf(todo.done, "disabled")} data-id="${todo.id}">Done</button>
@@ -2714,7 +2714,7 @@ var todoListComponent = (model) => `
         <button id="addTodoBtn">Add</button>
     </div>`;
 
-// src/UI/components/common.components.js
+// src/app/components/common.components.js
 var loader = () => `<p>...Loading</p>`;
 var headerComponent = () => `
     <header>
@@ -2724,9 +2724,8 @@ var headerComponent = () => `
         </ul>
     </header>`;
 
-// src/UI/views/todoList.view.js
+// src/app/views/todoList.view.js
 var todoValidator = (value) => {
-  console.log("validator", value, !value.match(/[a-zA-Z0-9]/));
   if (!value.match(/^[a-zA-Z0-9]+$/)) {
     return {
       message: "should be alphanumeric"
@@ -2825,7 +2824,7 @@ var fetchTodos = () => {
   });
 };
 
-// src/UI/components/cards.components.js
+// src/app/components/cards.components.js
 var cardComponent = (card) => `
     <div>
         <h3>${card.title}</h3>
@@ -2840,7 +2839,7 @@ var cardList = (cards) => `
         </ul>
     </div>`;
 
-// src/UI/views/cardList.view.js
+// src/app/views/cardList.view.js
 var cardListView = (store2, domApi) => {
   const model = stateSelector(store2, cardListSliceKey);
   const root = domApi.querySelector("#app");
@@ -2869,7 +2868,7 @@ var queryCards = (store2, fetchCard2) => {
   };
 };
 
-// src/UI/router.js
+// src/app/router.js
 var todoListProvider = {
   addTodo: addTodoInList(store, makeTodo(idProvider)),
   deleteTodo: removeTodoInList(store),
@@ -2884,37 +2883,34 @@ class Router {
   #state = "/";
   #storeUnsubscribe;
   static #INSTANCE = null;
-  static getInstance() {
+  #routes;
+  constructor(routes) {
+    this.#routes = routes;
+  }
+  static getInstance(routes) {
     if (Router.#INSTANCE === null) {
-      Router.#INSTANCE = new Router;
+      Router.#INSTANCE = new Router(routes);
     }
     return Router.#INSTANCE;
   }
   #init() {
-    switch (this.#state) {
-      case "/":
-        if (this.#storeUnsubscribe)
-          this.#storeUnsubscribe();
-        const todoListRender = () => todoListView(store, document, todoListProvider);
-        this.#storeUnsubscribe = store.subscribe(todoListRender);
-        queryView(todoListProvider.query, todoListRender);
-        break;
-      case "/cards":
-        if (this.#storeUnsubscribe)
-          this.#storeUnsubscribe();
-        const renderCardList = () => cardListView(store, document);
-        this.#storeUnsubscribe = store.subscribe(renderCardList);
-        queryView(cardListProvider.query, renderCardList);
-        break;
-      default:
-        throw new Error("unknown path");
-    }
+    const route = this.#routes.find((route2) => route2.path === this.#state);
+    if (!route)
+      throw new Error("unknown path");
+    if (this.#storeUnsubscribe)
+      this.#storeUnsubscribe();
+    this.#storeUnsubscribe = initView(route, store);
   }
   navigate(path) {
     this.#state = path;
     this.#init();
   }
 }
+var initView = (route, store3) => {
+  const unsubscribe = store3.subscribe(route.view);
+  queryView(route.providers.query, route.view);
+  return unsubscribe;
+};
 
 class RouterLink extends HTMLElement {
   #path;
@@ -2928,7 +2924,7 @@ class RouterLink extends HTMLElement {
   }
 }
 
-// src/UI/components/FormControl.js
+// src/app/components/FormControl.js
 class FormControl extends HTMLInputElement {
   #validator;
   #currentError = null;
@@ -2965,11 +2961,33 @@ class FormControl extends HTMLInputElement {
   }
 }
 
+// src/app/routes.js
+var routes = [
+  {
+    path: "/",
+    view: () => todoListView(store, document, {
+      addTodo: addTodoInList(store, makeTodo(idProvider)),
+      deleteTodo: removeTodoInList(store),
+      doneTodo: doneTodoInList(store)
+    }),
+    providers: {
+      query: todoListQuery(store, fetchTodos)
+    }
+  },
+  {
+    path: "/cards",
+    view: () => cardListView(store, document),
+    providers: {
+      query: queryCards(store, fetchCard)
+    }
+  }
+];
+
 // src/index.js
 var main = function() {
   customElements.define("router-link", RouterLink);
   customElements.define("form-control", FormControl, { extends: "input" });
-  const router2 = Router.getInstance();
+  const router2 = Router.getInstance(routes);
   router2.navigate("/");
 };
 main();

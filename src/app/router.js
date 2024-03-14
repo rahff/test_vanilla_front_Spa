@@ -27,30 +27,23 @@ export class Router {
     #state = "/";
     #storeUnsubscribe;
     static #INSTANCE = null;
+    #routes;
 
-    static getInstance(){
+    constructor(routes) {
+        this.#routes = routes;
+    }
+    static getInstance(routes){
         if(Router.#INSTANCE === null){
-            Router.#INSTANCE = new Router();
+            Router.#INSTANCE = new Router(routes);
         }
         return Router.#INSTANCE;
     }
 
     #init(){
-        switch (this.#state) {
-            case "/":
-                if(this.#storeUnsubscribe) this.#storeUnsubscribe();
-                const todoListRender = () => todoListView(store, document, todoListProvider);
-                this.#storeUnsubscribe = store.subscribe(todoListRender);
-                queryView(todoListProvider.query, todoListRender);
-                break;
-            case "/cards":
-                if(this.#storeUnsubscribe) this.#storeUnsubscribe();
-                const renderCardList = ()=> cardListView(store, document)
-                this.#storeUnsubscribe = store.subscribe(renderCardList);
-                queryView(cardListProvider.query, renderCardList);
-                break;
-            default: throw new Error("unknown path");
-        }
+        const route = this.#routes.find(route => route.path === this.#state)
+        if(!route) throw new Error("unknown path");
+        if(this.#storeUnsubscribe) this.#storeUnsubscribe();
+        this.#storeUnsubscribe = initView(route, store);
     }
 
     navigate(path){
@@ -59,7 +52,11 @@ export class Router {
     }
 }
 
-
+const initView = (route, store) => {
+    const unsubscribe =  store.subscribe(route.view);
+    queryView(route.providers.query, route.view);
+    return unsubscribe;
+}
 
 export class RouterLink extends HTMLElement {
     #path;

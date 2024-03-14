@@ -1,4 +1,4 @@
-import {todoListComponentRender, todoListView} from "../src/UI/views/todoList.view.js";
+import {todoListComponentRender, todoListView} from "../src/app/views/todoList.view.js";
 import {testingStore} from "../src/core/store.js";
 import {addTodoInList, makeTodo, todoListQuery, doneTodoInList, removeTodoInList} from "../src/core/todoList/todo.use-cases.js";
 import {fakeIdProvider, syncFetchTodos} from "../src/adapters/adapters.js";
@@ -43,7 +43,7 @@ describe("Component testability", () => {
                 else return noopElement;
             }
         }
-        model = store => stateSelector(store, todoListSliceKey)
+        model = store => stateSelector(store, todoListSliceKey);
     });
 
     it("should works", () => {
