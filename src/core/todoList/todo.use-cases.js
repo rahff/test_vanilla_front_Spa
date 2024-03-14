@@ -6,15 +6,20 @@ import {
     todoRemovedEvent
 } from "./todo.events.js";
 import {todoListSliceKey} from "./todo.state.js";
+import {stateSelector} from "../selector.js";
 export const makeTodo = (idProvider) => (description) => ({description, done: false, id: idProvider()})
 
-const getTodos = (store) => store.getState()[todoListSliceKey].todos;
+const getTodos = (store) => stateSelector(store, todoListSliceKey).todos;
+
+const initialRequest = (store) => stateSelector(store, todoListSliceKey).init;
 
 export const todoListQuery = (store, fetchTodo) => {
     return () => {
-        fetchTodo().then(todos => {
-            store.dispatch(todoReceivedEvent(todos));
-        });
+        if(!initialRequest(store)){
+            fetchTodo().then(todos => {
+                store.dispatch(todoReceivedEvent(todos));
+            });
+        }
     }
 }
 export const addTodoInList = (store, todoFactory) => value => {

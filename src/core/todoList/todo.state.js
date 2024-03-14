@@ -9,7 +9,8 @@ export const todoListSlice = createSlice({
     initialState: {
         todos: [],
         error: null,
-        isLoading: true
+        isLoading: true,
+        init: false
     },
     reducers: {
         addTodo,

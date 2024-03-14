@@ -2559,7 +2559,8 @@ var setTodos = (state, event) => {
   return {
     ...state,
     todos: event.payload,
-    isLoading: false
+    isLoading: false,
+    init: true
   };
 };
 var addTodo = (state, event) => {
@@ -2603,7 +2604,8 @@ var todoListSlice = createSlice({
   initialState: {
     todos: [],
     error: null,
-    isLoading: true
+    isLoading: true,
+    init: false
   },
   reducers: {
     addTodo,
@@ -2614,14 +2616,20 @@ var todoListSlice = createSlice({
   }
 });
 
+// src/core/selector.js
+var stateSelector = (store, index) => store.getState()[index];
+
 // src/core/todoList/todo.use-cases.js
 var makeTodo = (idProvider) => (description) => ({ description, done: false, id: idProvider() });
-var getTodos = (store) => store.getState()[todoListSliceKey].todos;
+var getTodos = (store) => stateSelector(store, todoListSliceKey).todos;
+var initialRequest = (store) => stateSelector(store, todoListSliceKey).init;
 var todoListQuery = (store, fetchTodo) => {
   return () => {
-    fetchTodo().then((todos) => {
-      store.dispatch(todoReceivedEvent(todos));
-    });
+    if (!initialRequest(store)) {
+      fetchTodo().then((todos) => {
+        store.dispatch(todoReceivedEvent(todos));
+      });
+    }
   };
 };
 var addTodoInList = (store, todoFactory) => (value) => {
@@ -2668,9 +2676,6 @@ var rootReducer = combineReducers({
 var store = configureStore({
   reducer: rootReducer
 });
-
-// src/core/selector.js
-var stateSelector = (store2, index) => store2.getState()[index];
 
 // src/UI/utils.js
 var queryView = (query, render) => {
@@ -2755,7 +2760,6 @@ var todoListView = (store2, domApi, useCase) => {
   const model = stateSelector(store2, todoListSliceKey);
   const root = domApi.querySelector("#app");
   root.innerHTML = todoListComponentRender(model);
-  console.log("model ", model);
   addTodoListListener(domApi, useCase);
 };
 var todoListComponentRender = (todoModel) => {

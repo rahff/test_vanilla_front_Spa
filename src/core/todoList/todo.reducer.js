@@ -1,11 +1,11 @@
 
 
 export const setTodos = (state, event) => {
-    console.log("event" , event)
     return {
         ...state,
         todos: event.payload,
-        isLoading: false
+        isLoading: false,
+        init: true
     }
 }
 
