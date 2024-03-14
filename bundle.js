@@ -2693,70 +2693,30 @@ var headerComponent = () => `
     </header>`;
 
 // src/UI/views/todoList.view.js
-class TodoListView {
-  #model = (store2) => stateSelector(store2, todoListSliceKey);
-  #store;
-  #root;
-  #useCases;
-  #addBtn;
-  #doneBtns;
-  #deleteBtns;
-  #addInput;
-  #domApi;
-  #unsubscribe;
-  constructor(store2, useCases, domApi) {
-    this.#domApi = domApi;
-    this.#store = store2;
-    this.#useCases = useCases;
-  }
-  getModel() {
-    return this.#model(this.#store);
-  }
-  getRootElement() {
-    return this.#root;
-  }
-  #render() {
-    this.#root = this.#domApi.querySelector("#app");
-    this.#root.innerHTML = todoListComponentRender(this.getModel());
-  }
-  init() {
-    this.#unsubscribe = this.#store.subscribe(this.#refresh.bind(this));
-    this.#refresh();
-  }
-  #addListeners() {
-    this.#addBtn = this.#domApi.querySelector("#addTodoBtn");
-    this.#doneBtns = this.#domApi.querySelectorAll("[data-action='done']");
-    this.#deleteBtns = this.#domApi.querySelectorAll("[data-action='delete']");
-    this.#addInput = this.#domApi.querySelector("#addTodoInput");
-    this.#addBtn.addEventListener("click", () => {
-      this.addTodo(this.#addInput.value);
-    });
-    this.#doneBtns.forEach((button) => button.addEventListener("click", (event) => {
-      const todoId = event.target.dataset.id;
-      this.doneTodo(todoId);
-    }));
-    this.#deleteBtns.forEach((button) => button.addEventListener("click", (event) => {
-      const todoId = event.target.dataset.id;
-      this.deleteTodo(todoId);
-    }));
-  }
-  addTodo(value) {
-    this.#useCases.addTodo(value);
-  }
-  doneTodo(value) {
-    this.#useCases.doneTodo(value);
-  }
-  deleteTodo(value) {
-    this.#useCases.deleteTodo(value);
-  }
-  #refresh() {
-    this.#render();
-    this.#addListeners();
-  }
-  destroy() {
-    this.#unsubscribe();
-  }
-}
+var addTodoListener = (domApi, useCase) => {
+  const addBtn = domApi.querySelector("#addTodoBtn");
+  const doneBtns = domApi.querySelectorAll("[data-action='done']");
+  const deleteBtns = domApi.querySelectorAll("[data-action='delete']");
+  const addInput = domApi.querySelector("#addTodoInput");
+  addBtn.addEventListener("click", () => {
+    useCase.addTodo(addInput.value);
+  });
+  doneBtns.forEach((button) => button.addEventListener("click", (event) => {
+    const todoId = event.target.dataset.id;
+    useCase.doneTodo(todoId);
+  }));
+  deleteBtns.forEach((button) => button.addEventListener("click", (event) => {
+    const todoId = event.target.dataset.id;
+    useCase.deleteTodo(todoId);
+  }));
+};
+var todoListView = (store2, domApi, useCase) => {
+  console.log("todo ");
+  const model = stateSelector(store2, todoListSliceKey);
+  const root = domApi.querySelector("#app");
+  root.innerHTML = todoListComponentRender(model);
+  addTodoListener(domApi, useCase);
+};
 var todoListComponentRender = (todoModel, headerModel) => {
   return `
     ${headerComponent(headerModel)}
@@ -2807,46 +2767,6 @@ var cardComponent = (card) => `
         <p>${card.description}</p>
     </div>
 `;
-
-// src/UI/views/cardList.view.js
-class CardListView {
-  #domApi;
-  #store;
-  #useCases;
-  #model = (store2) => stateSelector(store2, cardListSliceKey);
-  #root;
-  #unsubscribe;
-  constructor(store2, useCases, domApi) {
-    this.#domApi = domApi;
-    this.#store = store2;
-    this.#useCases = useCases;
-  }
-  getModel() {
-    return this.#model(this.#store);
-  }
-  getRootElement() {
-    return this.#root;
-  }
-  #render() {
-    this.#root = this.#domApi.querySelector("#app");
-    this.#root.innerHTML = cardListComponentRender(this.getModel());
-  }
-  init() {
-    this.#unsubscribe = this.#store.subscribe(this.#refresh.bind(this));
-    this.#refresh();
-    this.#useCases.query();
-  }
-  #refresh() {
-    console.log("model", this.getModel());
-    this.#render();
-    this.#addListeners();
-  }
-  #addListeners() {
-  }
-  destroy() {
-    this.#unsubscribe();
-  }
-}
 var cardList = (cards) => `
     <div>
         <ul>
@@ -2854,10 +2774,21 @@ var cardList = (cards) => `
         </ul>
     </div>`;
 var loader = () => `<p>...Loading</p>`;
+
+// src/UI/views/cardList.view.js
+var cardListView = (store2, domApi) => {
+  console.log("card ");
+  const model = stateSelector(store2, cardListSliceKey);
+  const root = domApi.querySelector("#app");
+  root.innerHTML = cardListComponentRender(model);
+};
 var cardListComponentRender = (cardsModel, headerModel) => {
   return `
     ${headerComponent(headerModel)}
+    <div id="cardList">
     ${ngIfElse(cardsModel.isLoading, loader(), cardList(cardsModel.cards))}
+    </div>
+    
     `;
 };
 
@@ -2868,7 +2799,9 @@ var cardsReceivedEvent = createAction("cardListSlice/setCards", payload2);
 // src/core/cards/cards.use-cases.js
 var queryCards = (store2, fetchCard2) => {
   return () => {
-    fetchCard2().then((cards) => store2.dispatch(cardsReceivedEvent(cards)));
+    fetchCard2().then((cards) => {
+      store2.dispatch(cardsReceivedEvent(cards));
+    });
   };
 };
 
@@ -2884,7 +2817,7 @@ var cardListProvider = {
 
 class Router {
   #state = "/";
-  #currentView;
+  #storeUnsubscribe;
   static #INSTANCE = null;
   static getInstance() {
     if (Router.#INSTANCE === null) {
@@ -2895,16 +2828,17 @@ class Router {
   #init() {
     switch (this.#state) {
       case "/":
-        if (this.#currentView)
-          this.#currentView.destroy();
-        this.#currentView = new TodoListView(store, todoListProvider, document);
-        this.#currentView.init();
+        if (this.#storeUnsubscribe)
+          this.#storeUnsubscribe();
+        this.#storeUnsubscribe = store.subscribe(() => todoListView(store, document, todoListProvider));
+        todoListView(store, document, todoListProvider);
         break;
       case "/cards":
-        if (this.#currentView)
-          this.#currentView.destroy();
-        this.#currentView = new CardListView(store, cardListProvider, document);
-        this.#currentView.init();
+        if (this.#storeUnsubscribe)
+          this.#storeUnsubscribe();
+        this.#storeUnsubscribe = store.subscribe(() => cardListView(store, document));
+        cardListProvider.query();
+        cardListView(store, document);
         break;
       default:
         throw new Error("unknown path");
@@ -2925,8 +2859,8 @@ class RouterLink extends HTMLElement {
     this.#path = this.getAttribute("data-path");
     this.addEventListener("click", this.#handleClick.bind(this));
   }
-  #handleClick(event) {
-    event.preventDefault();
+  #handleClick() {
+    console.log("router-link");
     this.#router.navigate(this.#path);
   }
 }

@@ -1,8 +1,8 @@
 import {addTodoInList, doneTodoInList, makeTodo, removeTodoInList} from "../core/todoList/todo.use-cases.js";
 import {store} from "../core/store.js";
-import {TodoListView} from "./views/todoList.view.js";
+import {todoListView} from "./views/todoList.view.js";
 import {fetchCard, idProvider} from "../adapters/adapters.js";
-import {CardListView} from "./views/cardList.view.js";
+import {cardListView} from "./views/cardList.view.js";
 import {queryCards} from "../core/cards/cards.use-cases.js";
 
 const todoListProvider = {
@@ -17,7 +17,7 @@ const cardListProvider = {
 
 export class Router {
     #state = "/";
-    #currentView;
+    #storeUnsubscribe;
     static #INSTANCE = null;
 
     static getInstance(){
@@ -30,14 +30,15 @@ export class Router {
     #init(){
         switch (this.#state) {
             case "/":
-                if(this.#currentView) this.#currentView.destroy();
-                this.#currentView = new TodoListView(store, todoListProvider, document);
-                this.#currentView.init();
+                if(this.#storeUnsubscribe) this.#storeUnsubscribe();
+                this.#storeUnsubscribe = store.subscribe(()=> todoListView(store, document, todoListProvider));
+                todoListView(store, document, todoListProvider);
                 break;
             case "/cards":
-                if(this.#currentView) this.#currentView.destroy();
-                this.#currentView = new CardListView(store, cardListProvider, document);
-                this.#currentView.init();
+                if(this.#storeUnsubscribe) this.#storeUnsubscribe();
+                this.#storeUnsubscribe = store.subscribe(()=> cardListView(store, document));
+                cardListProvider.query();
+                cardListView(store, document);
                 break;
             default: throw new Error("unknown path");
         }
@@ -49,6 +50,7 @@ export class Router {
     }
 }
 
+
 export class RouterLink extends HTMLElement {
     #router;
     #path;
@@ -59,8 +61,8 @@ export class RouterLink extends HTMLElement {
         this.addEventListener("click", this.#handleClick.bind(this));
     }
 
-    #handleClick(event){
-        event.preventDefault();
+    #handleClick(){
+        console.log("router-link")
         this.#router.navigate(this.#path);
     }
 }

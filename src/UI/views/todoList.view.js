@@ -5,80 +5,31 @@ import { ngFor, ngIf} from "../utils.js";
 import {errorComponent, todoComponent} from "../components/todoList.components.js";
 import {headerComponent} from "../components/common.components.js"
 
-export class TodoListView {
-    #model = (store) => stateSelector(store, todoListSliceKey);
-    #store;
-    #root;
-    #useCases;
-    #addBtn;
-    #doneBtns;
-    #deleteBtns;
-    #addInput;
-    #domApi;
-    #unsubscribe
 
-    constructor(store, useCases, domApi) {
-        this.#domApi = domApi;
-        this.#store = store;
-        this.#useCases = useCases;
-    }
-
-    getModel() {
-        return this.#model(this.#store); // for testing purposes :/
-    }
-    getRootElement() {
-        return this.#root;  // for testing purposes :/
-    }
-    #render(){
-        this.#root = this.#domApi.querySelector("#app");
-        this.#root.innerHTML = todoListComponentRender(this.getModel());
-    }
-
-    init() {
-        this.#unsubscribe = this.#store.subscribe(this.#refresh.bind(this));
-        this.#refresh();
-    }
-
-    #addListeners(){
-        this.#addBtn = this.#domApi.querySelector("#addTodoBtn");
-        this.#doneBtns = this.#domApi.querySelectorAll("[data-action='done']");
-        this.#deleteBtns = this.#domApi.querySelectorAll("[data-action='delete']");
-        this.#addInput = this.#domApi.querySelector("#addTodoInput");
-        this.#addBtn.addEventListener("click", () => {
-            this.addTodo(this.#addInput.value);
-        })
-        this.#doneBtns.forEach(button => button.addEventListener("click", (event) => {
-            const todoId = event.target.dataset.id;
-            this.doneTodo(todoId);
-        }))
-        this.#deleteBtns.forEach(button => button.addEventListener("click", (event) => {
-            const todoId = event.target.dataset.id;
-            this.deleteTodo(todoId);
-        }))
-    }
-
-    addTodo(value){
-        this.#useCases.addTodo(value);
-    }
-
-    doneTodo(value){
-        this.#useCases.doneTodo(value);
-    }
-
-    deleteTodo(value){
-        this.#useCases.deleteTodo(value);
-    }
-
-    #refresh(){
-        this.#render();
-        this.#addListeners();
-    }
-
-    destroy(){
-        this.#unsubscribe();
-    }
+const addTodoListener = (domApi, useCase) => {
+    const addBtn = domApi.querySelector("#addTodoBtn");
+    const doneBtns = domApi.querySelectorAll("[data-action='done']");
+    const deleteBtns = domApi.querySelectorAll("[data-action='delete']");
+    const addInput = domApi.querySelector("#addTodoInput");
+    addBtn.addEventListener("click", () => {
+        useCase.addTodo(addInput.value);
+    })
+    doneBtns.forEach(button => button.addEventListener("click", (event) => {
+        const todoId = event.target.dataset.id;
+        useCase.doneTodo(todoId);
+    }))
+    deleteBtns.forEach(button => button.addEventListener("click", (event) => {
+        const todoId = event.target.dataset.id;
+        useCase.deleteTodo(todoId);
+    }))
 }
-
+export const todoListView = (store, domApi, useCase) => {
+    console.log("todo ")
+    const model = stateSelector(store, todoListSliceKey);
+    const root = domApi.querySelector("#app");
+    root.innerHTML = todoListComponentRender(model);
+    addTodoListener(domApi, useCase);
+}
 
 export const todoListComponentRender = (todoModel, headerModel) => {
     return `

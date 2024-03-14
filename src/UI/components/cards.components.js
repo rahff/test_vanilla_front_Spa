@@ -1,3 +1,4 @@
+import {ngFor} from "../utils.js";
 
 export const cardComponent = (card) => `
     <div>
@@ -6,3 +7,12 @@ export const cardComponent = (card) => `
         <p>${card.description}</p>
     </div>
 `
+
+export const cardList = (cards) => `
+    <div>
+        <ul>
+            ${ngFor(cards, cardComponent)}
+        </ul>
+    </div>`
+
+export const loader = () => `<p>...Loading</p>`
