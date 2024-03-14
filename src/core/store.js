@@ -1,9 +1,11 @@
 import {combineReducers, configureStore} from "@reduxjs/toolkit"
-import {todoListSlice} from "./todo.state.js";
+import {todoListSlice, todoListSliceKey} from "./todoList/todo.state.js";
+import {cardListSlice, cardListSliceKey} from "./cards/cards.state.js";
 
 
 const rootReducer = combineReducers({
-    [todoListSlice.name]: todoListSlice.reducer
+    [todoListSliceKey]: todoListSlice.reducer,
+    [cardListSliceKey]: cardListSlice.reducer
 })
 
 export const testingStore = () => configureStore({

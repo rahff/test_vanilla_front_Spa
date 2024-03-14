@@ -4,7 +4,8 @@ export const addTodo = (state, event) => {
         todos: [
             ...state.todos,
             event.payload
-        ]
+        ],
+        error: null
     }
 }
 
@@ -24,5 +25,12 @@ export const doneTodo = (state, event) => {
             }
             return todo;
         })
+    }
+}
+
+export const setError = (state, event) => {
+    return {
+        ...state,
+        error: event.payload
     }
 }

@@ -2545,41 +2545,22 @@ var removeListener = Object.assign(createAction(`${alm}/remove`), {
 });
 var ORIGINAL_STATE = Symbol.for("rtk-state-proxy-original");
 
-// src/core/todo.events.js
-var todoAddedEvent = createAction("todoListSlice/addTodo");
-var todoRemovedEvent = createAction("todoListSlice/removeTodo");
-var todoDoneEvent = createAction("todoListSlice/doneTodo");
+// src/core/todoList/todo.events.js
+var payload = (payload2) => ({ payload: payload2 });
+var todoAddedEvent = createAction("todoListSlice/addTodo", payload);
+var todoRemovedEvent = createAction("todoListSlice/removeTodo", payload);
+var todoDoneEvent = createAction("todoListSlice/doneTodo", payload);
+var todoAlreadyExistEvent = createAction("todoListSlice/setError", payload);
 
-// src/core/todo.use-cases.js
-var addTodoInList = (store) => (todo) => {
-  store.dispatch(todoAddedEvent(todo));
-};
-
-// src/UI/todoList.component.js
-var todoListSelector = (store) => store.getState().todoListSlice;
-var todoListComponent = (selector) => {
-  return `
-    <div>
-        <ul>
-            ${selector.todos.map((todo) => "<li>" + todo.description + "</li>").join("")}
-        </ul>
-        <input id="addTodoInput" type="text"> // how I bind event & how I link useCases on event handler ?
-        <button id="addTodoBtn">Add</button>
-    </div>
-    `;
-};
-var page = (rootElement, selector) => {
-  rootElement.innerHTML = todoListComponent(selector);
-};
-
-// src/core/todo.reducer.js
+// src/core/todoList/todo.reducer.js
 var addTodo = (state, event) => {
   return {
     ...state,
     todos: [
       ...state.todos,
       event.payload
-    ]
+    ],
+    error: null
   };
 };
 var removeTodo = (state, event) => {
@@ -2599,49 +2580,355 @@ var doneTodo = (state, event) => {
     })
   };
 };
+var setError = (state, event) => {
+  return {
+    ...state,
+    error: event.payload
+  };
+};
 
-// src/core/todo.state.js
+// src/core/todoList/todo.state.js
+var todoListSliceKey = "todoListSlice";
 var todoListSlice = createSlice({
-  name: "todoListSlice",
+  name: todoListSliceKey,
   initialState: {
     todos: [
       {
         description: "do something",
         done: false,
-        id: 1
+        id: "1"
       }
-    ]
+    ],
+    error: null
   },
   reducers: {
     addTodo,
     removeTodo,
-    doneTodo
+    doneTodo,
+    setError
+  }
+});
+
+// src/core/todoList/todo.use-cases.js
+var makeTodo = (idProvider) => (description) => ({ description, done: false, id: idProvider() });
+var getTodos = (store) => store.getState()[todoListSliceKey].todos;
+var addTodoInList = (store, todoFactory) => (value) => {
+  const alreadyExist = getTodos(store).some((todo) => todo.description === value);
+  if (alreadyExist)
+    store.dispatch(todoAlreadyExistEvent("todo already exists"));
+  else
+    store.dispatch(todoAddedEvent(todoFactory(value)));
+};
+var removeTodoInList = (store) => (todoId) => {
+  store.dispatch(todoRemovedEvent(todoId));
+};
+var doneTodoInList = (store) => (todoId) => {
+  store.dispatch(todoDoneEvent(todoId));
+};
+
+// src/core/cards/cards.reducer.js
+var setCards = (state, event) => {
+  return {
+    ...state,
+    cards: event.payload,
+    isLoading: false
+  };
+};
+
+// src/core/cards/cards.state.js
+var cardListSliceKey = "cardListSlice";
+var cardListSlice = createSlice({
+  name: cardListSliceKey,
+  initialState: {
+    cards: [],
+    isLoading: true
+  },
+  reducers: {
+    setCards
   }
 });
 
 // src/core/store.js
 var rootReducer = combineReducers({
-  [todoListSlice.name]: todoListSlice.reducer
+  [todoListSliceKey]: todoListSlice.reducer,
+  [cardListSliceKey]: cardListSlice.reducer
 });
 var store = configureStore({
   reducer: rootReducer
 });
 
-// src/index.js
-var root = document.querySelector("main");
-var refresh = () => {
-  page(root, todoListSelector(store));
-  addPageListener(addTodoInList(store));
+// src/core/selector.js
+var stateSelector = (store2, index) => store2.getState()[index];
+
+// src/UI/utils.js
+var ngIf = (expression, template) => {
+  if (expression)
+    return template;
+  return "";
 };
-var makeTodo = (description) => ({ description, done: false, id: 1 });
-var addPageListener = (addTodoUseCase) => {
-  const addBtn = document.querySelector("#addTodoBtn");
-  const addInput = document.querySelector("#addTodoInput");
-  addBtn.addEventListener("click", () => {
-    console.log("event fired");
-    addTodoUseCase(makeTodo(addInput.value));
+var ngIfElse = (expression, ifTemplate, elseTemplate) => {
+  if (expression)
+    return ifTemplate;
+  return elseTemplate;
+};
+var ngFor = (iterable, fnTemplate) => {
+  return iterable.map((item) => fnTemplate(item)).join("");
+};
+
+// src/UI/components.js
+var errorComponent = (message) => `<span>${message}</span>`;
+var todoButtons = (todo) => `
+    <button data-action="done" ${ngIf(todo.done, "disabled")} data-id="${todo.id}">Done</button>
+    <button data-action="delete" data-id="${todo.id}">Delete</button>
+`;
+var todoComponent = (todo) => `<li>${todo.description} ${todoButtons(todo)}</li>`;
+var cardComponent = (card) => `<div><h3>${card.title}</h3><img alt="${card.img.alt}" height="200" width="200" src="${card.img.url}"><p>${card.description}</p></div>`;
+var headerComponent = (model) => `
+    <header>
+        <ul>
+            <li><router-link data-path="/">Todo</router-link></li>
+            <li><router-link data-path="/cards">Cards</router-link></li>
+        </ul>
+    </header>`;
+
+// src/UI/todoList.view.js
+class TodoListView {
+  #model = (store2) => stateSelector(store2, todoListSliceKey);
+  #store;
+  #root;
+  #useCases;
+  #addBtn;
+  #doneBtns;
+  #deleteBtns;
+  #addInput;
+  #domApi;
+  #unsubscribe;
+  constructor(store2, useCases, domApi) {
+    this.#domApi = domApi;
+    this.#store = store2;
+    this.#useCases = useCases;
+  }
+  getModel() {
+    return this.#model(this.#store);
+  }
+  getRootElement() {
+    return this.#root;
+  }
+  #render() {
+    this.#root = this.#domApi.querySelector("#app");
+    this.#root.innerHTML = todoListComponentRender(this.getModel());
+  }
+  init() {
+    this.#unsubscribe = this.#store.subscribe(this.#refresh.bind(this));
+    this.#refresh();
+  }
+  #addListeners() {
+    this.#addBtn = this.#domApi.querySelector("#addTodoBtn");
+    this.#doneBtns = this.#domApi.querySelectorAll("[data-action='done']");
+    this.#deleteBtns = this.#domApi.querySelectorAll("[data-action='delete']");
+    this.#addInput = this.#domApi.querySelector("#addTodoInput");
+    this.#addBtn.addEventListener("click", () => {
+      this.addTodo(this.#addInput.value);
+    });
+    this.#doneBtns.forEach((button) => button.addEventListener("click", (event) => {
+      const todoId = event.target.dataset.id;
+      this.doneTodo(todoId);
+    }));
+    this.#deleteBtns.forEach((button) => button.addEventListener("click", (event) => {
+      const todoId = event.target.dataset.id;
+      this.deleteTodo(todoId);
+    }));
+  }
+  addTodo(value) {
+    this.#useCases.addTodo(value);
+  }
+  doneTodo(value) {
+    this.#useCases.doneTodo(value);
+  }
+  deleteTodo(value) {
+    this.#useCases.deleteTodo(value);
+  }
+  #refresh() {
+    this.#render();
+    this.#addListeners();
+  }
+  destroy() {
+    this.#unsubscribe();
+  }
+}
+var todoListComponentRender = (todoModel, headerModel) => {
+  return `
+    ${headerComponent(headerModel)}
+    <div>
+        <ul>
+            ${ngFor(todoModel.todos, todoComponent)}
+        </ul>
+        <input id="addTodoInput" type="text">
+        ${ngIf(todoModel.error, errorComponent(todoModel.error))}
+        <button id="addTodoBtn">Add</button>
+    </div>
+    `;
+};
+
+// src/data/cards.data.js
+var cardsData = [
+  {
+    title: "Two cats plays",
+    img: {
+      alt: "cats",
+      url: "https://cats.com/wp-content/uploads/2020/10/Are-My-Cats-Fighting-or-Playing-Feature.jpg"
+    },
+    description: "This two cat both fighting each over to playing together"
+  },
+  {
+    title: "Kitten kills a mouse",
+    img: {
+      alt: "kitten",
+      url: "https://cdn.mos.cms.futurecdn.net/Xu6jixmdqUpUCqRjpVYuGh-650-80.jpg.webp"
+    },
+    description: "This kitten plays with a fake mouse"
+  }
+];
+
+// src/adapters/adapters.js
+var idProvider = () => Math.random().toString(36).substring(7).split("").join(".");
+var fetchCard = () => {
+  return new Promise((resolve) => {
+    setTimeout(() => resolve(cardsData), 200);
   });
 };
-store.subscribe(() => refresh());
-page(root, todoListSelector(store));
-addPageListener(addTodoInList(store));
+
+// src/UI/cardList.view.js
+class CardListView {
+  #domApi;
+  #store;
+  #useCases;
+  #model = (store2) => stateSelector(store2, cardListSliceKey);
+  #root;
+  #unsubscribe;
+  constructor(store2, useCases, domApi) {
+    this.#domApi = domApi;
+    this.#store = store2;
+    this.#useCases = useCases;
+  }
+  getModel() {
+    return this.#model(this.#store);
+  }
+  getRootElement() {
+    return this.#root;
+  }
+  #render() {
+    this.#root = this.#domApi.querySelector("#app");
+    this.#root.innerHTML = cardListComponentRender(this.getModel());
+  }
+  init() {
+    this.#unsubscribe = this.#store.subscribe(this.#refresh.bind(this));
+    this.#refresh();
+    this.#useCases.query();
+  }
+  #refresh() {
+    console.log("model", this.getModel());
+    this.#render();
+    this.#addListeners();
+  }
+  #addListeners() {
+  }
+  destroy() {
+    this.#unsubscribe();
+  }
+}
+var cardList = (cards) => `
+    <div>
+        <ul>
+            ${ngFor(cards, cardComponent)}
+        </ul>
+    </div>`;
+var loader = () => `<p>...Loading</p>`;
+var cardListComponentRender = (cardsModel, headerModel) => {
+  return `
+    ${headerComponent(headerModel)}
+    ${ngIfElse(cardsModel.isLoading, loader(), cardList(cardsModel.cards))}
+    `;
+};
+
+// src/core/cards/cards.events.js
+var payload2 = (payload3) => ({ payload: payload3 });
+var cardsReceivedEvent = createAction("cardListSlice/setCards", payload2);
+
+// src/core/cards/cards.use-cases.js
+var queryCards = (store2, fetchCard2) => {
+  return () => {
+    fetchCard2().then((cards) => store2.dispatch(cardsReceivedEvent(cards)));
+  };
+};
+
+// src/UI/router.js
+var todoListProvider = {
+  addTodo: addTodoInList(store, makeTodo(idProvider)),
+  deleteTodo: removeTodoInList(store),
+  doneTodo: doneTodoInList(store)
+};
+var cardListProvider = {
+  query: queryCards(store, fetchCard)
+};
+var todoListView = new TodoListView;
+
+class Router {
+  #state = "/";
+  #currentView;
+  static #INSTANCE = null;
+  static getInstance() {
+    if (Router.#INSTANCE === null) {
+      Router.#INSTANCE = new Router;
+    }
+    return Router.#INSTANCE;
+  }
+  #init() {
+    switch (this.#state) {
+      case "/":
+        if (this.#currentView)
+          this.#currentView.destroy();
+        this.#currentView = new TodoListView(store, todoListProvider, document);
+        this.#currentView.init();
+        break;
+      case "/cards":
+        if (this.#currentView)
+          this.#currentView.destroy();
+        this.#currentView = new CardListView(store, cardListProvider, document);
+        this.#currentView.init();
+        break;
+      default:
+        throw new Error("unknown path");
+    }
+  }
+  navigate(path) {
+    this.#state = path;
+    this.#init();
+  }
+}
+
+class RouterLink extends HTMLElement {
+  #router;
+  #path;
+  constructor() {
+    super();
+    this.#router = Router.getInstance();
+    this.#path = this.getAttribute("data-path");
+    this.addEventListener("click", this.#handleClick.bind(this));
+  }
+  #handleClick(event) {
+    event.preventDefault();
+    this.#router.navigate(this.#path);
+  }
+}
+
+// src/index.js
+var main = function() {
+  customElements.define("router-link", RouterLink);
+  const router2 = Router.getInstance();
+  window.addEventListener("popstate", () => {
+    router2.navigate(window.location.pathname);
+  });
+  router2.navigate("/");
+};
+main();
