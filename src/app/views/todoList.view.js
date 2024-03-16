@@ -1,8 +1,8 @@
 
 import {todoListSliceKey} from "../../core/todoList/todo.state.js";
 import {stateSelector} from "../../core/selector.js";
-import {ngFor, ngIf, ngIfElse} from "../utils.js";
-import {errorComponent, todoComponent, todoListComponent} from "../components/todoList.components.js";
+import {ngIfElse} from "../utils.js";
+import {errorComponent, todoListComponent} from "../components/todoList.components.js";
 import {headerComponent, loader} from "../components/common.components.js"
 
 
@@ -14,13 +14,14 @@ const todoValidator = (value) => {
     }
     return null
 }
+
 const addTodoListeners = (domApi, command) => {
     const addBtn = domApi.querySelector("#addTodoBtn");
-    if(!addBtn) return;
-    const addInput = domApi.querySelector("#addTodoInput");
-    addInput.addValidator({fn: todoValidator, templateError: errorComponent})
+    const formControl = domApi.querySelector("#addTodoInput");
+    if(!addBtn || !formControl) return;
+    formControl.addValidator({fn: todoValidator, templateError: errorComponent})
     addBtn.addEventListener("click", () => {
-        command(addInput.value, addInput.isValid());
+        command(formControl.value, formControl.isValid());
     })
 }
 

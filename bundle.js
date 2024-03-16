@@ -2887,9 +2887,9 @@ var todoValidator = (value) => {
 };
 var addTodoListeners = (domApi, command) => {
   const addBtn = domApi.querySelector("#addTodoBtn");
-  if (!addBtn)
-    return;
   const addInput = domApi.querySelector("#addTodoInput");
+  if (!addBtn || !addInput)
+    return;
   addInput.addValidator({ fn: todoValidator, templateError: errorComponent });
   addBtn.addEventListener("click", () => {
     command(addInput.value, addInput.isValid());
