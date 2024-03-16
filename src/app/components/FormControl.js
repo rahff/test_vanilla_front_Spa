@@ -1,6 +1,12 @@
+
+const noopValidator = {
+    fn: (_) => null,
+    template: (_) => null
+}
+
 export class FormControl extends HTMLInputElement {
-    #validator;
     #currentError = null;
+    #validator = noopValidator;
     #divError;
     constructor() {
         super();
@@ -12,11 +18,16 @@ export class FormControl extends HTMLInputElement {
     }
 
     #showErrorOnParent(error){
-        if(this.#currentError && !this.#divError){
+        const needCreateElement = this.#currentError && !this.#divError;
+        this.#showErrorMessage(needCreateElement, error.message);
+    }
+
+    #showErrorMessage(needCreateElement, message){
+        if(needCreateElement){
             this.#divError = document.createElement("div");
-            this.#divError.innerHTML = this.#validator.template(error.message)
-            this.parentElement.appendChild(this.#divError)
-        }else this.#divError.innerHTML = this.#validator.template(error.message)
+            this.parentElement.appendChild(this.#divError);
+        }
+        this.#divError.innerHTML = this.#validator.templateError(message)
     }
     #removeErrorMessage(){
         if(this.#divError){
@@ -25,11 +36,11 @@ export class FormControl extends HTMLInputElement {
         }
 
     }
+    isValid(){
+        return !this.#currentError;
+    }
 
     addValidator(validator){
-        this.#validator = {
-            fn: validator.fn,
-            template: validator.templateError
-        }
+        this.#validator = validator;
     }
 }

@@ -2545,14 +2545,6 @@ var removeListener = Object.assign(createAction(`${alm}/remove`), {
 });
 var ORIGINAL_STATE = Symbol.for("rtk-state-proxy-original");
 
-// src/core/todoList/todo.events.js
-var payload = (payload2) => ({ payload: payload2 });
-var todoReceivedEvent = createAction("todoListSlice/setTodos", payload);
-var todoAddedEvent = createAction("todoListSlice/addTodo", payload);
-var todoRemovedEvent = createAction("todoListSlice/removeTodo", payload);
-var todoDoneEvent = createAction("todoListSlice/doneTodo", payload);
-var todoAlreadyExistEvent = createAction("todoListSlice/setError", payload);
-
 // src/core/todoList/todo.reducer.js
 var setTodos = (state, event) => {
   return {
@@ -2615,36 +2607,6 @@ var todoListSlice = createSlice({
   }
 });
 
-// src/core/selector.js
-var stateSelector = (store, index) => store.getState()[index];
-
-// src/core/todoList/todo.use-cases.js
-var makeTodo = (idProvider) => (description) => ({ description, done: false, id: idProvider() });
-var getTodos = (store) => stateSelector(store, todoListSliceKey).todos;
-var initialRequest = (store) => stateSelector(store, todoListSliceKey).init;
-var todoListQuery = (store, fetchTodo) => {
-  return () => {
-    if (!initialRequest(store)) {
-      fetchTodo().then((todos) => {
-        store.dispatch(todoReceivedEvent(todos));
-      });
-    }
-  };
-};
-var addTodoInList = (store, todoFactory) => (value) => {
-  const alreadyExist = getTodos(store).some((todo) => todo.description === value);
-  if (alreadyExist)
-    store.dispatch(todoAlreadyExistEvent("todo already exists"));
-  else
-    store.dispatch(todoAddedEvent(todoFactory(value)));
-};
-var removeTodoInList = (store) => (todoId) => {
-  store.dispatch(todoRemovedEvent(todoId));
-};
-var doneTodoInList = (store) => (todoId) => {
-  store.dispatch(todoDoneEvent(todoId));
-};
-
 // src/core/cards/cards.reducer.js
 var setCards = (state, event) => {
   return {
@@ -2695,88 +2657,135 @@ var ngFor = (iterable, fnTemplate) => {
   return iterable.map((item) => fnTemplate(item)).join("");
 };
 
-// src/app/components/todoList.components.js
-var errorComponent = (message) => `<span>${message}</span>`;
-var todoButtons = (todo) => `
-    <button data-action="done" ${ngIf(todo.done, "disabled")} data-id="${todo.id}">Done</button>
-    <button data-action="delete" data-id="${todo.id}">Delete</button>
-`;
-var todoComponent = (todo) => `<li>${todo.description} ${todoButtons(todo)}</li>`;
-var todoListComponent = (model) => `
-    <div>
-        <ul>
-            ${ngFor(model.todos, todoComponent)}
-        </ul>
-        <div>
-            <input is="form-control" id="addTodoInput" type="text">
-            ${ngIf(model.error, errorComponent(model.error))}
-        </div>
-        <button id="addTodoBtn">Add</button>
-    </div>`;
-
-// src/app/components/common.components.js
-var loader = () => `<p>...Loading</p>`;
-var headerComponent = () => `
-    <header>
-        <ul>
-            <li><router-link data-path="/">Todo</router-link></li>
-            <li><router-link data-path="/cards">Cards</router-link></li>
-        </ul>
-    </header>`;
-
-// src/app/views/todoList.view.js
-var todoValidator = (value) => {
-  if (!value.match(/^[a-zA-Z0-9]+$/)) {
-    return {
-      message: "should be alphanumeric"
-    };
+// src/app/router.js
+class Router {
+  #state = "/";
+  #storeUnsubscribe;
+  static #INSTANCE = null;
+  #routes;
+  constructor(routes) {
+    this.#routes = routes;
   }
-  return null;
+  static getInstance(routes) {
+    if (Router.#INSTANCE === null) {
+      Router.#INSTANCE = new Router(routes);
+    }
+    return Router.#INSTANCE;
+  }
+  navigate(path) {
+    this.#state = path;
+    this.#init();
+  }
+  #init() {
+    const route = this.#routes.find((route2) => route2.path === this.#state);
+    if (!route)
+      throw new Error("unknown path");
+    if (this.#storeUnsubscribe)
+      this.#storeUnsubscribe();
+    this.#storeUnsubscribe = initView(route, store);
+  }
+}
+var initView = (route, store3) => {
+  const unsubscribe = store3.subscribe(route.view);
+  queryView(route.providers.query, route.view);
+  return unsubscribe;
 };
-var addTodoListeners = (domApi, command) => {
-  const addBtn = domApi.querySelector("#addTodoBtn");
-  if (!addBtn)
+
+class RouterLink extends HTMLElement {
+  #path;
+  constructor() {
+    super();
+    this.#path = this.getAttribute("data-path");
+    this.addEventListener("click", this.#handleClick.bind(this));
+  }
+  #handleClick() {
+    Router.getInstance().navigate(this.#path);
+  }
+}
+
+// src/app/components/FormControl.js
+var noopValidator = {
+  fn: (_) => null,
+  template: (_) => null
+};
+
+class FormControl extends HTMLInputElement {
+  #currentError = null;
+  #validator = noopValidator;
+  #divError;
+  constructor() {
+    super();
+    this.addEventListener("input", (event) => {
+      this.#currentError = this.#validator.fn(event.target.value);
+      if (this.#currentError)
+        this.#showErrorOnParent(this.#currentError);
+      else
+        this.#removeErrorMessage();
+    });
+  }
+  #showErrorOnParent(error) {
+    const needCreateElement = this.#currentError && !this.#divError;
+    this.#showErrorMessage(needCreateElement, error.message);
+  }
+  #showErrorMessage(needCreateElement, message) {
+    if (needCreateElement) {
+      this.#divError = document.createElement("div");
+      this.parentElement.appendChild(this.#divError);
+    }
+    this.#divError.innerHTML = this.#validator.templateError(message);
+  }
+  #removeErrorMessage() {
+    if (this.#divError) {
+      this.parentElement.removeChild(this.#divError);
+      this.#divError = null;
+    }
+  }
+  isValid() {
+    return !this.#currentError;
+  }
+  addValidator(validator) {
+    this.#validator = validator;
+  }
+}
+
+// src/core/todoList/todo.events.js
+var payload = (payload2) => ({ payload: payload2 });
+var todoReceivedEvent = createAction("todoListSlice/setTodos", payload);
+var todoAddedEvent = createAction("todoListSlice/addTodo", payload);
+var todoRemovedEvent = createAction("todoListSlice/removeTodo", payload);
+var todoDoneEvent = createAction("todoListSlice/doneTodo", payload);
+var todoAlreadyExistEvent = createAction("todoListSlice/setError", payload);
+
+// src/core/selector.js
+var stateSelector = (store3, index) => store3.getState()[index];
+
+// src/core/todoList/todo.use-cases.js
+var makeTodo = (idProvider) => (description) => ({ description, done: false, id: idProvider() });
+var getTodos = (store3) => stateSelector(store3, todoListSliceKey).todos;
+var initialRequest = (store3) => stateSelector(store3, todoListSliceKey).init;
+var todoListQuery = (store3, fetchTodo) => {
+  return () => {
+    if (!initialRequest(store3)) {
+      fetchTodo().then((todos) => {
+        store3.dispatch(todoReceivedEvent(todos));
+      });
+    }
+  };
+};
+var addTodoInList = (store3, todoFactory) => (value, isValid) => {
+  if (!isValid)
     return;
-  const addInput = domApi.querySelector("#addTodoInput");
-  addInput.addValidator({ fn: todoValidator, templateError: errorComponent });
-  addBtn.addEventListener("click", () => {
-    command(addInput.value);
-  });
+  const alreadyExist = getTodos(store3).some((todo) => todo.description === value);
+  if (alreadyExist)
+    store3.dispatch(todoAlreadyExistEvent("todo already exists"));
+  else
+    store3.dispatch(todoAddedEvent(todoFactory(value)));
 };
-var doneTodoListeners = (domApi, command) => {
-  const doneBtns = domApi.querySelectorAll("[data-action='done']");
-  if (!doneBtns)
-    return;
-  doneBtns.forEach((button) => button.addEventListener("click", (event) => {
-    const todoId = event.target.dataset.id;
-    command(todoId);
-  }));
+var removeTodoInList = (store3) => (todoId) => {
+  store3.dispatch(todoRemovedEvent(todoId));
 };
-var deleteTodoListeners = (domApi, command) => {
-  const deleteBtns = domApi.querySelectorAll("[data-action='delete']");
-  if (!deleteBtns)
-    return;
-  deleteBtns.forEach((button) => button.addEventListener("click", (event) => {
-    const todoId = event.target.dataset.id;
-    command(todoId);
-  }));
-};
-var addTodoListListener = (domApi, useCase) => {
-  addTodoListeners(domApi, useCase.addTodo);
-  doneTodoListeners(domApi, useCase.doneTodo);
-  deleteTodoListeners(domApi, useCase.deleteTodo);
-};
-var todoListView = (store2, domApi, useCase) => {
-  const model = stateSelector(store2, todoListSliceKey);
-  const root = domApi.querySelector("#app");
-  root.innerHTML = todoListComponentRender(model);
-  addTodoListListener(domApi, useCase);
-};
-var todoListComponentRender = (todoModel) => {
-  return `
-    ${headerComponent()}
-    ${ngIfElse(todoModel.isLoading, loader(), todoListComponent(todoModel))}
-    `;
+var doneTodoInList = (store3) => (todoId) => {
+  store3.dispatch(todoDoneEvent(todoId));
 };
 
 // src/data/fake.data.js
@@ -2824,6 +2833,104 @@ var fetchTodos = () => {
   });
 };
 
+// src/core/cards/cards.events.js
+var payload2 = (payload3) => ({ payload: payload3 });
+var cardsReceivedEvent = createAction("cardListSlice/setCards", payload2);
+
+// src/core/cards/cards.use-cases.js
+var queryCards = (store3, fetchCard2) => {
+  return () => {
+    fetchCard2().then((cards) => {
+      store3.dispatch(cardsReceivedEvent(cards));
+    });
+  };
+};
+
+// src/app/components/todoList.components.js
+var errorComponent = (message) => `<span>${message}</span>`;
+var todoButtons = (todo) => `
+    <button data-action="done" ${ngIf(todo.done, "disabled")} data-id="${todo.id}">Done</button>
+    <button data-action="delete" data-id="${todo.id}">Delete</button>
+`;
+var todoComponent = (todo) => `<li>${todo.description} ${todoButtons(todo)}</li>`;
+var todoListComponent = (model) => `
+    <div>
+        <ul>
+            ${ngFor(model.todos, todoComponent)}
+        </ul>
+        <div>
+            <input is="form-control" id="addTodoInput" type="text">
+            ${ngIf(model.error, errorComponent(model.error))}
+        </div>
+        <button id="addTodoBtn">Add</button>
+    </div>
+`;
+
+// src/app/components/common.components.js
+var loader = () => `<p>...Loading</p>`;
+var headerComponent = () => `
+    <header>
+        <ul>
+            <li><router-link data-path="/">Todo</router-link></li>
+            <li><router-link data-path="/cards">Cards</router-link></li>
+        </ul>
+    </header>`;
+
+// src/app/views/todoList.view.js
+var todoValidator = (value) => {
+  if (!value.match(/^[a-zA-Z0-9]+$/)) {
+    return {
+      message: "should be alphanumeric"
+    };
+  }
+  return null;
+};
+var addTodoListeners = (domApi, command) => {
+  const addBtn = domApi.querySelector("#addTodoBtn");
+  if (!addBtn)
+    return;
+  const addInput = domApi.querySelector("#addTodoInput");
+  addInput.addValidator({ fn: todoValidator, templateError: errorComponent });
+  addBtn.addEventListener("click", () => {
+    command(addInput.value, addInput.isValid());
+  });
+};
+var doneTodoListeners = (domApi, command) => {
+  const doneBtns = domApi.querySelectorAll("[data-action='done']");
+  if (!doneBtns)
+    return;
+  doneBtns.forEach((button) => button.addEventListener("click", (event) => {
+    const todoId = event.target.dataset.id;
+    command(todoId);
+  }));
+};
+var deleteTodoListeners = (domApi, command) => {
+  const deleteBtns = domApi.querySelectorAll("[data-action='delete']");
+  if (!deleteBtns)
+    return;
+  deleteBtns.forEach((button) => button.addEventListener("click", (event) => {
+    const todoId = event.target.dataset.id;
+    command(todoId);
+  }));
+};
+var addTodoListListener = (domApi, useCase) => {
+  addTodoListeners(domApi, useCase.addTodo);
+  doneTodoListeners(domApi, useCase.doneTodo);
+  deleteTodoListeners(domApi, useCase.deleteTodo);
+};
+var todoListView = (store3, domApi, useCase) => {
+  const model = stateSelector(store3, todoListSliceKey);
+  const root = domApi.querySelector("#app");
+  root.innerHTML = todoListComponentRender(model);
+  addTodoListListener(domApi, useCase);
+};
+var todoListComponentRender = (todoModel) => {
+  return `
+    ${headerComponent()}
+    ${ngIfElse(todoModel.isLoading, loader(), todoListComponent(todoModel))}
+    `;
+};
+
 // src/app/components/cards.components.js
 var cardComponent = (card) => `
     <div>
@@ -2840,8 +2947,8 @@ var cardList = (cards) => `
     </div>`;
 
 // src/app/views/cardList.view.js
-var cardListView = (store2, domApi) => {
-  const model = stateSelector(store2, cardListSliceKey);
+var cardListView = (store3, domApi) => {
+  const model = stateSelector(store3, cardListSliceKey);
   const root = domApi.querySelector("#app");
   root.innerHTML = cardListComponentRender(model);
 };
@@ -2854,112 +2961,6 @@ var cardListComponentRender = (cardsModel, headerModel) => {
     
     `;
 };
-
-// src/core/cards/cards.events.js
-var payload2 = (payload3) => ({ payload: payload3 });
-var cardsReceivedEvent = createAction("cardListSlice/setCards", payload2);
-
-// src/core/cards/cards.use-cases.js
-var queryCards = (store2, fetchCard2) => {
-  return () => {
-    fetchCard2().then((cards) => {
-      store2.dispatch(cardsReceivedEvent(cards));
-    });
-  };
-};
-
-// src/app/router.js
-var todoListProvider = {
-  addTodo: addTodoInList(store, makeTodo(idProvider)),
-  deleteTodo: removeTodoInList(store),
-  doneTodo: doneTodoInList(store),
-  query: todoListQuery(store, fetchTodos)
-};
-var cardListProvider = {
-  query: queryCards(store, fetchCard)
-};
-
-class Router {
-  #state = "/";
-  #storeUnsubscribe;
-  static #INSTANCE = null;
-  #routes;
-  constructor(routes) {
-    this.#routes = routes;
-  }
-  static getInstance(routes) {
-    if (Router.#INSTANCE === null) {
-      Router.#INSTANCE = new Router(routes);
-    }
-    return Router.#INSTANCE;
-  }
-  #init() {
-    const route = this.#routes.find((route2) => route2.path === this.#state);
-    if (!route)
-      throw new Error("unknown path");
-    if (this.#storeUnsubscribe)
-      this.#storeUnsubscribe();
-    this.#storeUnsubscribe = initView(route, store);
-  }
-  navigate(path) {
-    this.#state = path;
-    this.#init();
-  }
-}
-var initView = (route, store3) => {
-  const unsubscribe = store3.subscribe(route.view);
-  queryView(route.providers.query, route.view);
-  return unsubscribe;
-};
-
-class RouterLink extends HTMLElement {
-  #path;
-  constructor() {
-    super();
-    this.#path = this.getAttribute("data-path");
-    this.addEventListener("click", this.#handleClick.bind(this));
-  }
-  #handleClick() {
-    Router.getInstance().navigate(this.#path);
-  }
-}
-
-// src/app/components/FormControl.js
-class FormControl extends HTMLInputElement {
-  #validator;
-  #currentError = null;
-  #divError;
-  constructor() {
-    super();
-    this.addEventListener("input", (event) => {
-      this.#currentError = this.#validator.fn(event.target.value);
-      if (this.#currentError)
-        this.#showErrorOnParent(this.#currentError);
-      else
-        this.#removeErrorMessage();
-    });
-  }
-  #showErrorOnParent(error) {
-    if (this.#currentError && !this.#divError) {
-      this.#divError = document.createElement("div");
-      this.#divError.innerHTML = this.#validator.template(error.message);
-      this.parentElement.appendChild(this.#divError);
-    } else
-      this.#divError.innerHTML = this.#validator.template(error.message);
-  }
-  #removeErrorMessage() {
-    if (this.#divError) {
-      this.parentElement.removeChild(this.#divError);
-      this.#divError = null;
-    }
-  }
-  addValidator(validator) {
-    this.#validator = {
-      fn: validator.fn,
-      template: validator.templateError
-    };
-  }
-}
 
 // src/app/routes.js
 var routes = [

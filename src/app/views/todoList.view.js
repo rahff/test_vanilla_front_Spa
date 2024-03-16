@@ -20,7 +20,7 @@ const addTodoListeners = (domApi, command) => {
     const addInput = domApi.querySelector("#addTodoInput");
     addInput.addValidator({fn: todoValidator, templateError: errorComponent})
     addBtn.addEventListener("click", () => {
-        command(addInput.value);
+        command(addInput.value, addInput.isValid());
     })
 }
 

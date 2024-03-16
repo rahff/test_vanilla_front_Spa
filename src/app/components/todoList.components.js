@@ -16,5 +16,6 @@ export const todoListComponent = (model) => `
             ${ngIf(model.error, errorComponent(model.error))}
         </div>
         <button id="addTodoBtn">Add</button>
-    </div>`
+    </div>
+`
 
